@@ -1,492 +1,110 @@
-# nitcbase
+# Stage 02: Record Blocks and Catalogs
 
-# Stage 1: Understanding the Disk Interface
+## Overview
 
-**Learning Objective**
+In this stage, the focus shifts from working with raw disk blocks to understanding how a database stores and organizes relations. The database schema itself is stored on disk using two system catalogs:
 
-- Understand the NITCbase disk model.
-- Learn how to read/write disk blocks using the `Disk` class.
-- Understand how records are stored in record blocks.
-- Learn the purpose of slots, catalogs and the Block Allocation Map.
+- **Relation Catalog** – stores metadata about every relation in the database.
+- **Attribute Catalog** – stores metadata about the attributes of each relation.
 
----
-
-# 1. Introduction
-
-A **relational database** stores data in the form of **relations (tables)**.
-
-A relation consists of:
-
-- **Rows** → Records/Tuples
-- **Columns** → Attributes
-- **Domain** → Allowed values for an attribute
-
-Since a relation can contain millions of records, scanning every record for every query is inefficient. Hence, **indexes (B+ Trees)** are used to speed up searching.
-
-Apart from storing records, the DBMS also stores metadata about relations and attributes using:
-
-- Relation Catalog
-- Attribute Catalog
+This stage introduces the concept of **record blocks**, where each block contains multiple records along with a header storing metadata such as the number of entries and links to neighboring record blocks.
 
 ---
 
-# 2. Disk Model
+## Objectives
 
-NITCbase models the disk as a sequence of blocks.
-
-| Property | Value |
-|----------|-------|
-| Number of blocks | **8192** |
-| Block numbers | **0 – 8191** |
-| Size of one block | **2048 bytes (2 KB)** |
-| Total Disk Size | **16 MB** |
+- Understand the storage structure of record blocks.
+- Learn the organization of the Relation Catalog and Attribute Catalog.
+- Read relation and attribute metadata directly from disk.
+- Display the schema of every relation in the database.
+- Handle attribute catalogs spanning multiple record blocks.
+- Modify catalog records to update a relation's schema.
 
 ---
 
-# 3. Block Allocation Map (BMAP)
+## Components Implemented
 
-The Block Allocation Map keeps track of every block in the disk.
+### BlockBuffer
 
-For every block it stores:
+Implemented support for reading the header of a record block.
 
-- Whether the block is free or occupied.
-- The type of the block.
+- `getHeader()`
 
-Possible block types:
+### RecBuffer
 
-- `REC` → Record Block
-- `IND_INTERNAL` → Internal Index Block
-- `IND_LEAF` → Leaf Index Block
-- `BMAP` → Block Allocation Map
+Implemented record-level operations on record blocks.
 
-Since one byte is required per disk block,
-
-```
-8192 bytes = 4 blocks
-```
-
-Hence,
-
-**Blocks 0–3** are reserved for storing the Block Allocation Map.
+- `getRecord()`
+- `setRecord()` *(Exercise 2)*
 
 ---
 
-# 4. Reserved Blocks
+## Programs Implemented
 
-| Block Number | Purpose |
-|--------------|---------|
-| 0 – 3 | Block Allocation Map |
-| 4 | Relation Catalog |
-| 5 | First Attribute Catalog Block |
+### 1. Display Database Schema
 
-When the **fdisk** command is executed,
+Reads the Relation Catalog and Attribute Catalog to print:
 
-- Blocks **0–3** are marked as `BMAP`
-- Block **4** is marked as `REC`
-- Block **5** is marked as `REC`
+- Relation name
+- Attribute names
+- Attribute types
 
-Thus, the first **6 blocks are automatically allocated**.
+### 2. Multi-block Attribute Catalog Traversal
+
+Extended the program to traverse multiple Attribute Catalog blocks using the `rblock` pointer in the block header, allowing schemas larger than a single block to be displayed correctly.
+
+### 3. Schema Update
+
+Modified the Attribute Catalog to rename the `Class` attribute of the `Students` relation to `Batch`, and verified the update by printing the schema again.
 
 ---
 
-# 5. Relation & Attribute Catalogs
+## Key Concepts Learned
 
-A **catalog** stores **metadata (data about data)**.
+### Record Blocks
 
-It does **not** store actual user records.
+Each record block consists of:
+
+- Block Header
+- Slot Map
+- Fixed-size Record Slots
+
+The header maintains metadata such as:
+
+- Number of records
+- Previous block (`lblock`)
+- Next block (`rblock`)
+
+allowing record blocks to be linked together.
+
+---
 
 ### Relation Catalog
 
-Stores information about every relation.
+Stores metadata for every relation, including:
 
-Example:
-
-| Relation | #Attributes | First Record Block |
-|----------|-------------|--------------------|
-| Student | 4 | 20 |
-| Employee | 5 | 45 |
+- Relation name
+- Number of attributes
+- Number of records
+- First record block
+- Last record block
+- Number of slots
 
 ---
 
 ### Attribute Catalog
 
-Stores information about every attribute.
+Stores metadata for every attribute of every relation, including:
 
-Example:
-
-| Relation | Attribute | Offset |
-|----------|-----------|--------|
-| Student | RollNo | 0 |
-| Student | Name | 16 |
-| Student | CGPA | 32 |
-
----
-
-# 6. XFS Interface
-
-The **XFS Interface** is provided to interact with `disk.xfs`.
-
-It can be used to
-
-- Initialize the disk
-- Copy relations between host and XFS disk
-- Inspect disk contents
-- Verify your implementation
-
-> **Important**
->
-> Never use the XFS Interface while the NITCbase program is running.
->
-> NITCbase works on a **temporary runtime copy** of the disk.
->
-> The XFS Interface directly modifies the **actual disk**.
->
-> Using both simultaneously can lead to inconsistencies.
+- Relation name
+- Attribute name
+- Attribute type
+- Primary flag
+- Root block
+- Attribute offset
 
 ---
 
-# 7. Disk Class
+## Learning Outcome
 
-The DBMS accesses the disk only through the `Disk` class.
-
-```cpp
-class Disk {
-public:
-    Disk();
-    ~Disk();
-
-    static int readBlock(unsigned char *block, int blockNum);
-    static int writeBlock(unsigned char *block, int blockNum);
-};
-```
-
-Only **one object** of this class is created at the beginning of the program.
-
-The object exists only so that the constructor and destructor execute.
-
----
-
-## Constructor
-
-```cpp
-Disk();
-```
-
-Creates a **temporary runtime copy** of the disk.
-
-Purpose:
-
-- Protects the original disk from accidental crashes.
-
----
-
-## Destructor
-
-```cpp
-~Disk();
-```
-
-Copies all updates made during execution back to the actual disk when the program terminates normally.
-
----
-
-## Static Functions
-
-Since `readBlock()` and `writeBlock()` are static,
-
-they are called as
-
-```cpp
-Disk::readBlock(...)
-Disk::writeBlock(...)
-```
-
-instead of
-
-```cpp
-disk.readBlock(...)
-```
-
----
-
-# 8. Reading a Block
-
-```cpp
-unsigned char buffer[BLOCK_SIZE];
-
-Disk::readBlock(buffer,7000);
-```
-
-### Parameters
-
-| Parameter | Description |
-|------------|-------------|
-| `buffer` | Pointer to a **2048-byte** memory buffer |
-| `blockNum` | Disk block number |
-
-### Returns
-
-- `SUCCESS`
-- `E_OUTOFBOUND`
-
----
-
-# 9. Writing a Block
-
-```cpp
-Disk::writeBlock(buffer,7000);
-```
-
-Writes the contents of the memory buffer back to the disk block.
-
-Returns
-
-- `SUCCESS`
-- `E_OUTOFBOUND`
-
----
-
-# 10. Example
-
-```cpp
-unsigned char buffer[BLOCK_SIZE];
-
-Disk::readBlock(buffer,7000);
-
-char message[]="hello";
-
-memcpy(buffer+20,message,6);
-
-Disk::writeBlock(buffer,7000);
-```
-
-Here,
-
-- Block **7000** is read into memory.
-- `"hello"` is copied into bytes **20–25**.
-- The modified buffer is written back to disk.
-
-To verify,
-
-```cpp
-unsigned char buffer2[BLOCK_SIZE];
-
-Disk::readBlock(buffer2,7000);
-
-char message2[6];
-
-memcpy(message2,buffer2+20,6);
-
-std::cout<<message2;
-```
-
-Output
-
-```
-hello
-```
-
----
-
-# 11. Record Block
-
-A relation is stored as a **linked list of Record Blocks**.
-
-Each Record Block contains
-
-- Header
-- Slot Map
-- Actual Records
-
----
-
-## Header (32 Bytes)
-
-Stores metadata such as
-
-- Block Type (`REC`)
-- Parent Block (unused)
-- Left Block
-- Right Block
-- Number of Records
-- Number of Attributes
-- Number of Slots
-
----
-
-# 12. Record Size
-
-NITCbase fixes the size of every attribute to **16 bytes**.
-
-If a relation has **K attributes**
-
-```
-Record Size = 16 × K bytes
-```
-
-Example
-
-| Attributes | Record Size |
-|------------|-------------|
-| 2 | 32 bytes |
-| 4 | 64 bytes |
-| 6 | 96 bytes |
-
----
-
-## Why are records called variable-sized?
-
-In NITCbase,
-
-records are variable-sized **across relations**, because different relations can have different numbers of attributes.
-
-Example
-
-```
-Student
-3 attributes
-Record Size = 48 bytes
-```
-
-```
-Employee
-5 attributes
-Record Size = 80 bytes
-```
-
-Within the **same relation**, every record has the same size.
-
-> In real DBMSs, record sizes can also vary within the same relation because of variable-length types like `VARCHAR` and `TEXT`.
-
----
-
-# 13. Slots
-
-Each Record Block is divided into **slots**.
-
-Each slot stores **exactly one record**.
-
-If a relation has **K attributes**
-
-```
-#Slots = floor(2016 / (16K + 1))
-```
-
-where
-
-- `2016 = 2048 - 32` (space after the header)
-- `+1` accounts for one byte in the Slot Map.
-
----
-
-## Important
-
-A Record Block always has **L slots**.
-
-However,
-
-it may contain anywhere from
-
-```
-0 to L records
-```
-
-because some slots may be empty.
-
----
-
-# 14. Slot Map
-
-Immediately after the header comes the **Slot Map**.
-
-The Slot Map occupies **L bytes**.
-
-Each byte represents one slot.
-
-```
-1 → SLOT_OCCUPIED
-
-0 → SLOT_UNOCCUPIED
-```
-
-Example
-
-```
-1 1 0 1 0
-```
-
-means
-
-```
-Slot1 -> Occupied
-
-Slot2 -> Occupied
-
-Slot3 -> Empty
-
-Slot4 -> Occupied
-
-Slot5 -> Empty
-```
-
----
-
-# 15. Why Slots?
-
-Without slots,
-
-deleting one record would require shifting all following records.
-
-Example
-
-```
-A | B | C | D
-
-Delete B
-
-↓
-
-A | C | D
-```
-
-Both **C** and **D** must be moved.
-
----
-
-With slots,
-
-```
-Slot1 -> A
-
-Slot2 -> Empty
-
-Slot3 -> C
-
-Slot4 -> D
-```
-
-To insert a record,
-
-- Scan the Slot Map.
-- Find a free slot.
-- Write the record there.
-- Mark the slot as occupied.
-
-No existing records are shifted.
-
-> **Note:** The Slot Map still needs to be scanned to find a free slot, but scanning a few bytes is much cheaper than moving entire records.
-
----
-
-# Key Takeaways
-
-- Disk consists of **8192 blocks**, each **2048 bytes**.
-- Blocks **0–3** store the Block Allocation Map.
-- Block **4** stores the Relation Catalog.
-- Block **5** stores the first Attribute Catalog block.
-- NITCbase uses a **runtime copy** of the disk while executing.
-- `Disk::readBlock()` and `Disk::writeBlock()` are the only APIs used to access the disk.
-- Every relation is stored as a **linked list of Record Blocks**.
-- Every attribute occupies **16 bytes** in NITCbase.
-- A Record Block has a fixed number of slots (`L`), but only some may be occupied.
-- The Slot Map tracks free and occupied slots, making insertion and deletion efficient.
+By the end of this stage, I understood how a relational database stores its own schema using system catalogs. I also implemented the ability to read and modify catalog records directly from disk, providing a deeper understanding of how database metadata is organized internally.
