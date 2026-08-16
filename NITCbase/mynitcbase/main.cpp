@@ -6,51 +6,10 @@
 #include<bits/stdc++.h>
 using namespace std;
 
-// int main(int argc, char *argv[]) {
-//   Disk disk_run;
-
-//   // create objects for the relation catalog and attribute catalog
-//   RecBuffer relCatBuffer(RELCAT_BLOCK);
-//   RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
-
-//   HeadInfo relCatHeader;
-//   HeadInfo attrCatHeader;
-
-//   // load the headers of both the blocks into relCatHeader and attrCatHeader.
-//   // (we will implement these functions later)
-//   relCatBuffer.getHeader(&relCatHeader);
-//   attrCatBuffer.getHeader(&attrCatHeader);
-
-//   for (int i=0;i< relCatHeader.numEntries;i++) {
-
-//     Attribute relCatRecord[RELCAT_NO_ATTRS]; // will store the record from the relation catalog
-
-//     relCatBuffer.getRecord(relCatRecord, i);
-
-//     printf("Relation: %s\n", relCatRecord[RELCAT_REL_NAME_INDEX].sVal);
-
-//     for (int j=0;j<attrCatHeader.numEntries;j++) {
-
-//       // declare attrCatRecord and load the attribute catalog entry into it
-//       Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
-//       attrCatBuffer.getRecord(attrCatRecord,j);
-
-//        if(strcmp(attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal , relCatRecord[RELCAT_REL_NAME_INDEX].sVal) == 0){
-//         const char *attrType = attrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal == NUMBER? "NUM" : "STR";
-//         printf(" %s: %s\n", attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrType);
-//       }
-//     }
-//     printf("\n");
-//   }
-
-//   return 0;
-// }
-
-
-// //EX 1
 // int main(int argc ,char* argv[]){
 //   Disk disk_run;
-  
+//   StaticBuffer buffer;
+//   OpenRelTable cache;
 //   //create an object for the recordcatalog
 //   RecBuffer relCatBuffer(RELCAT_BLOCK);
   
@@ -61,11 +20,9 @@ using namespace std;
 
 //   for(int i=0;i < relCatHeader.numEntries;i++){
 
-//     // record is an array of attributes so we have to declare an array of attributes for printing the relation name from each record of relcat
-//     Attribute relCatRecord[RELCAT_NO_ATTRS];
-
-//     // now we have to call getrecord fn to get the record from relCat
-//     relCatBuffer.getRecord(relCatRecord,i);
+//     Attribute relCatRecord[RELCAT_NO_ATTRS]; // record is an array of attributes so we have to declare an array of attributes for printing the relation name from each record of relcat
+    
+//     relCatBuffer.getRecord(relCatRecord,i); // now we have to call getrecord fn to get the record from relCat
 //     // from the record we have to identify the position of the rel name(rember that attribute could be STR or NUM but name gotta be STR so we do .sVal)
 //     printf("Relation: %s\n",relCatRecord[RELCAT_REL_NAME_INDEX].sVal);
 
@@ -97,42 +54,27 @@ using namespace std;
 //     printf("\n");
 //   }
 //   return 0;
-
 // }
-//EX2
-int main(int argc , char*argv[]){
+
+int main(int argc,char*argv[]){
   Disk disk_run;
+  StaticBuffer buffer;
+  OpenRelTable cache;
 
-  //an object only for relcatalog
-  RecBuffer RelCatBlock(RELCAT_BLOCK);
-  HeadInfo RelCathead;
-  RelCatBlock.getHeader(&RelCathead);
+  RelCatEntry relEntry;
+  AttrCatEntry attrEntry;
 
-  for(int i=0;i<RelCathead.numEntries;i++){
-    Attribute RelCatRecord[RELCAT_NO_ATTRS];
-    RelCatBlock.getRecord(RelCatRecord,i);
-    printf("Relation : %s\n",RelCatRecord[RELCAT_REL_NAME_INDEX].sVal);
+  //RELCAT_RELid = 0 ATTRCAT_RELID = 1;
+  for(int i=0;i<3;i++){
+    RelCacheTable::getRelCatEntry(i,&relEntry);
+    printf("Relation: %s\n",relEntry.relName);
 
-    int currentAttrBlock = ATTRCAT_BLOCK;
-    while(currentAttrBlock != -1){
-      RecBuffer AttrCatBlock(currentAttrBlock);
-      HeadInfo AttrCathead;
-      AttrCatBlock.getHeader(&AttrCathead);
-      for(int j=0;j<AttrCathead.numEntries;j++){
-        Attribute AttrCatRecord[ATTRCAT_NO_ATTRS];
-        AttrCatBlock.getRecord(AttrCatRecord,j);
-        if(strcmp(AttrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal,RelCatRecord[RELCAT_REL_NAME_INDEX].sVal)==0){
-          if(strcmp(AttrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal,"Class")==0 && strcmp(AttrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal,"Students")==0){
-              strcpy(AttrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, "Batch");
-              AttrCatBlock.setRecord(AttrCatRecord,j);
-          }
-          const char* attrType = AttrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal == NUMBER? "NUM":"STR";
-          printf(" %s: %s\n",AttrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal,attrType);
-        }
-      }
-      currentAttrBlock = AttrCathead.rblock;
+    for(int j=0;j<relEntry.numAttrs;j++){    // instead of 5 i gave relEntry.numAttr cuzue student has only 4 so if 5 given btach printed twice
+      AttrCacheTable::getAttrCatEntry(i,j,&attrEntry);
+      printf(" %s %s\n",attrEntry.attrName,(attrEntry.attrType==NUMBER)?"NUM":"STR");
     }
     printf("\n");
   }
+  // for ex we add student table as well so we give i<3
   return 0;
 }
