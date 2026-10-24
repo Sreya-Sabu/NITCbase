@@ -43,6 +43,27 @@ RecBuffer::RecBuffer() : BlockBuffer('R'){}
 // calls the parent class constructor
 RecBuffer::RecBuffer(int blockNum) : BlockBuffer::BlockBuffer(blockNum) {}
 
+
+// IndBuffer(int blockType) [constructor 1]
+IndBuffer::IndBuffer(char blockType) : BlockBuffer(blockType){}
+
+// IndBuffer(int blockNum) [constructor 2]
+IndBuffer::IndBuffer(int blockNum) : BlockBuffer(blockNum){}
+
+
+// IndInternal() [constructor 1]
+IndInternal::IndInternal() : IndBuffer('I'){}
+
+// IndInternal(int blockNum) [constructor 2]
+IndInternal::IndInternal(int blockNum) : IndBuffer(blockNum){}
+
+// IndLeaf() [constructor 1]
+IndLeaf::IndLeaf() : IndBuffer('L'){}
+
+// IndLeaf(int blockNum) [constructor 2]
+IndLeaf::IndLeaf(int blockNum) : IndBuffer(blockNum){}
+
+
 /*
 Used to get the header of the block into the location pointed to by `head`
 NOTE: this function expects the caller to allocate memory for `head`
@@ -387,4 +408,63 @@ int RecBuffer::setSlotMap(unsigned char* slotMap){
 */
 int BlockBuffer::getBlockNum(){
     return this->blockNum;
+}
+
+/* --------------------------- Index Buffer --------------------------------- */
+
+/* --------------------------- Index Internal ------------------------------- */
+
+int IndInternal::getEntry(void *ptr, int indexNum){
+    
+    // check if indexNum is within range
+    if(indexNum < 0 || indexNum >= MAX_KEYS_INTERNAL){
+        return E_OUTOFBOUND;
+    }
+
+    unsigned char *bufferPtr;
+    int res = BlockBuffer::loadBlockAndGetBufferPtr(&bufferPtr);
+    if(res != SUCCESS){
+        return res;
+    }
+
+    // typecaste the void pointer to an internal entry pointer
+    struct InternalEntry *internalEntry = (struct InternalEntry *)ptr;
+
+    // Copy the indexNum'th entry to the *internalEntry
+    unsigned char *entryPtr = bufferPtr + HEADER_SIZE + (indexNum * 20);
+    memcpy(&(internalEntry->lChild), entryPtr, sizeof(int32_t));
+    memcpy(&(internalEntry->attrVal), entryPtr + 4, sizeof(Attribute));
+    memcpy(&(internalEntry->rChild),entryPtr + 20, sizeof(int32_t));
+
+    return SUCCESS;
+}
+
+int IndInternal::setEntry(void *ptr, int indexNum){
+    return 0;
+}
+
+/* --------------------------- Index Leaf ----------------------------------- */
+
+int IndLeaf::getEntry(void *ptr, int indexNum){
+
+    // check if indexNum is within range
+    if(indexNum < 0 || indexNum >= MAX_KEYS_INTERNAL){
+        return E_OUTOFBOUND;
+    }
+
+    unsigned char *bufferPtr;
+    int res = BlockBuffer::loadBlockAndGetBufferPtr(&bufferPtr);
+    if(res != SUCCESS){
+        return res;
+    }
+
+    // copy the indexNum'th Index entry in buffer to memory ptr using memcpy
+    unsigned char *entryPtr = bufferPtr + HEADER_SIZE + (indexNum * LEAF_ENTRY_SIZE);
+    memcpy((struct Index *)ptr, entryPtr, LEAF_ENTRY_SIZE);
+
+    return SUCCESS;
+}
+
+int IndLeaf::setEntry(void *ptr, int indexNum){
+    return 0;
 }

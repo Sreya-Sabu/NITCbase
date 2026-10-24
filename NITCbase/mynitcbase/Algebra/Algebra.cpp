@@ -81,6 +81,7 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
 
     Attribute record[src_nAttrs];
     RelCacheTable::resetSearchIndex(srcRelId);
+    AttrCacheTable::resetSearchIndex(srcRelId,attr);
     // AttrCacheTable::resetSearchIndex(srcRelId); (in upcoming stages)
 
     while(BlockAccess::search(srcRelId, record, attr, attrValue, op) == SUCCESS){
