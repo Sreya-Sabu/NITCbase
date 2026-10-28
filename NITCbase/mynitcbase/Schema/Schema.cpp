@@ -2,34 +2,34 @@
 
 #include <cmath>
 #include <cstring>
-int Schema::openRel(char relName[ATTR_SIZE]) {
-  int ret = OpenRelTable::openRel(relName);
 
-  // the OpenRelTable::openRel() function returns the rel-id if successful
-  // a valid rel-id will be within the range 0 <= relId < MAX_OPEN and any
-  // error codes will be negative
-  if(ret >= 0){
-    return SUCCESS;
-  }
+#include <iostream>
+using namespace std;
 
-  //otherwise it returns an error message
-  return ret;
+int Schema::openRel(char relName[ATTR_SIZE]){
+    int ret = OpenRelTable::openRel(relName);
+
+    // OpenRelTable::openRel() will send rel-id [0,12].
+    //If relation is not open, any error code will return negative integer.
+    if(ret >= 0){
+        return SUCCESS;
+    }
+
+    return ret;
 }
 
-int Schema::closeRel(char relName[ATTR_SIZE]) {
-  if (strcmp(relName,RELCAT_RELNAME) == 0 || strcmp(relName,ATTRCAT_RELNAME) == 0) {
-    return E_NOTPERMITTED;
-  }
+int Schema::closeRel(char relName[ATTR_SIZE]){
+    // if relation in relation catalog or attribute catalog, the not permited to close
+    if( strcmp(relName,RELCAT_RELNAME) == 0 || strcmp(relName,ATTRCAT_RELNAME) == 0 ){
+        return E_NOTPERMITTED;
+    }
 
-  // this function returns the rel-id of a relation if it is open or
-  // E_RELNOTOPEN if it is not. we will implement this later.
-  int relId = OpenRelTable::getRelId(relName);
-
- if( relId == E_RELNOTOPEN){
+    int relId = OpenRelTable::getRelId(relName);
+    if( relId == E_RELNOTOPEN){
         return E_RELNOTOPEN;
-   }
+    }
 
-  return OpenRelTable::closeRel(relId);
+    return OpenRelTable::closeRel(relId);
 }
 
 // renameRel(): method to change the relation name of specified relation to a new specified name.
@@ -50,7 +50,6 @@ int Schema::renameRel(char oldRelName[ATTR_SIZE], char newRelName[ATTR_SIZE]){
     return retVal;
 }
 
-
 // renameAttr(): method used to change attrname of a given relation
 // NOTE: Relation must be close to perfrom this operation.
 int Schema::renameAttr(char relName[ATTR_SIZE], char oldAttrName[ATTR_SIZE], char newAttrName[ATTR_SIZE]){
@@ -69,7 +68,6 @@ int Schema::renameAttr(char relName[ATTR_SIZE], char oldAttrName[ATTR_SIZE], cha
     return retVal;
 }
 
-
 // createRel(): method to create a new relation with the given name, attributes.
 int Schema::createRel(char relName[], int nAttrs, char attrs[][ATTR_SIZE], int attrtype[]){
 
@@ -81,7 +79,7 @@ int Schema::createRel(char relName[], int nAttrs, char attrs[][ATTR_SIZE], int a
     
     // perform linear search on relation catalog
     RelCacheTable::resetSearchIndex(RELCAT_RELID);
-    char  relCatAttrRelname[] = RELCAT_ATTR_RELNAME;
+    char  relCatAttrRelname[ATTR_SIZE] = RELCAT_ATTR_RELNAME;
     // char *relCatAttrRelname;
     // strcpy(relCatAttrRelname,RELCAT_ATTR_RELNAME);
     targetRelId = BlockAccess::linearSearch(RELCAT_RELID,relCatAttrRelname,relNameAsAttribute,EQ);
@@ -97,7 +95,8 @@ int Schema::createRel(char relName[], int nAttrs, char attrs[][ATTR_SIZE], int a
             }
         }
     }
-  /*--- Now a record into relational catalog ---*/
+
+    /*--- Now a record into relational catalog ---*/
     Attribute relCatRecord[RELCAT_NO_ATTRS];
     strcpy(relCatRecord[RELCAT_REL_NAME_INDEX].sVal, relName);
     relCatRecord[RELCAT_NO_ATTRIBUTES_INDEX].nVal = nAttrs;
@@ -133,6 +132,7 @@ int Schema::createRel(char relName[], int nAttrs, char attrs[][ATTR_SIZE], int a
     return SUCCESS;
     
 }
+
 // deleteRel()
 int Schema::deleteRel(char *relName){
     /*--- if relName == RELCAT or ATTRCAT, then not permitted ---*/
@@ -148,4 +148,55 @@ int Schema::deleteRel(char *relName){
 
     int ret = BlockAccess::deleteRelation(relName);
     return ret;
+}
+
+// createIndex()
+int Schema::createIndex(char relName[ATTR_SIZE], char attrName[ATTR_SIZE]){
+    
+    if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0){
+        E_NOTPERMITTED;
+    }
+
+    int relId = OpenRelTable::getRelId(relName);
+    if(relId < 0 || relId >= MAX_OPEN){
+        E_RELNOTOPEN;
+    }
+
+    return BPlusTree::bPlusCreate(relId, attrName);
+}
+
+// dropIndex()
+int Schema::dropIndex(char *relName, char *attrName){
+
+    if(strcmp(relName, RELCAT_RELNAME) == 0 || strcmp(relName, ATTRCAT_RELNAME) == 0){
+        E_NOTPERMITTED;
+    }
+
+    int relId = OpenRelTable::getRelId(relName);
+    if(relId < 0 || relId >= MAX_OPEN){
+        return E_RELNOTOPEN;
+    }
+
+    // get attribute catalog entry corresponding to attrName
+    AttrCatEntry attrCatEntry;
+    if(AttrCacheTable::getAttrCatEntry(relId, attrName, &attrCatEntry) != SUCCESS){
+        return E_ATTRNOTEXIST;
+    }
+
+    int rootBlock = attrCatEntry.rootBlock;
+
+    // if attribute doesn't have an index (rootBlock == -1)
+    if(rootBlock == -1){
+        cout<<"i am here"<<endl;
+        return E_NOINDEX;
+    }
+
+    // destroy the bplus tree rooted at rootBlock
+    BPlusTree::bPlusDestroy(rootBlock);
+
+    // set rootBlock = -1 in attrCatEntry and set attrCatEntry
+    attrCatEntry.rootBlock = -1;
+    AttrCacheTable::setAttrCatEntry(relId, attrName, &attrCatEntry);
+
+    return SUCCESS;
 }
