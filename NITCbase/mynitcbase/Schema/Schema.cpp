@@ -187,7 +187,7 @@ int Schema::dropIndex(char *relName, char *attrName){
 
     // if attribute doesn't have an index (rootBlock == -1)
     if(rootBlock == -1){
-        cout<<"i am here"<<endl;
+        //cout<<"i am here"<<endl;
         return E_NOINDEX;
     }
 
