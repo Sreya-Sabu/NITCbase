@@ -5,8 +5,8 @@ using namespace std;
 #include <cstring>
 
 
+int linearcmp=0;
 RecId BlockAccess::linearSearch(int relId, char attrName[ATTR_SIZE], union Attribute attrVal, int op){
-
     // get the previous search index of the relation relId from the relation cache
     RecId prevRecId;
     RelCacheTable::getSearchIndex(relId,&prevRecId);
@@ -15,6 +15,8 @@ RecId BlockAccess::linearSearch(int relId, char attrName[ATTR_SIZE], union Attri
     int block, slot;
     // if the current search index record is invalid
     if(prevRecId.block == -1 && prevRecId.slot == -1){
+    linearcmp =0;
+
         // it means no hits from the previous search, search should start from the first record itself
         // get the first record block of the relation from the relation cache using getRelCatEntry()
         RelCatEntry relCatEntry;
@@ -87,6 +89,8 @@ RecId BlockAccess::linearSearch(int relId, char attrName[ATTR_SIZE], union Attri
         
         // store the difference b/w the attributes.
         int cmpVal = compareAttrs(currentAttrVal, attrVal, attrCatEntry.attrType);
+        linearcmp ++;
+        cout << linearcmp << "\n";
 
         /* Next task is to check whether this record satisfies the given condition.
            It is determined based on the output of previous comparison and

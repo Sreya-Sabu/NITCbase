@@ -1,7 +1,10 @@
 #include "BPlusTree.h"
 
 #include <cstring>
+#include<bits/stdc++.h>
+using namespace std;
 
+int bpluscmp = 0;
 
 RecId BPlusTree::bPlusSearch(int relId, char attrName[ATTR_SIZE], Attribute attrVal, int op){
     
@@ -20,7 +23,7 @@ RecId BPlusTree::bPlusSearch(int relId, char attrName[ATTR_SIZE], Attribute attr
 
     // if search is done first time, i.e searchIndex = {-1, -1}
     if(searchIndex.block == -1 && searchIndex.index == -1){
-        
+        bpluscmp = 0;
         // start the search from the first entry of the root
         block = attrCatEntry.rootBlock;
         index = 0;
@@ -112,6 +115,8 @@ RecId BPlusTree::bPlusSearch(int relId, char attrName[ATTR_SIZE], Attribute attr
             for(int i = 0; i < intHead.numEntries; i++){
                 internalBlk.getEntry(&intEntry, i);
                 int compareVal = compareAttrs(intEntry.attrVal, attrVal, attrCatEntry.attrType);
+                bpluscmp ++;
+                cout << "finding intblk " << bpluscmp << endl;  
                 if((compareVal >= 0 && (op == EQ || op == GE)) || (compareVal > 0 || op == GT)){
                     found = true;
                     break;
@@ -150,6 +155,8 @@ RecId BPlusTree::bPlusSearch(int relId, char attrName[ATTR_SIZE], Attribute attr
             leafBlk.getEntry(&leafEntry, index);
 
             int cmpVal = compareAttrs(leafEntry.attrVal, attrVal, attrCatEntry.attrType);
+            bpluscmp++;
+            cout << "leaf "<<bpluscmp << endl;
 
             if(
                 (op == EQ && cmpVal == 0) ||
