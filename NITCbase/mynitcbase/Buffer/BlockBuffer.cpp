@@ -240,33 +240,25 @@ int BlockBuffer::getBlockNum(){
     from the buffer and the disk.
     2.  The blockNum field to the object is invalidated
 */
-void BlockBuffer::releaseBlock(){
-    // if blockNum is INVALID_BLOCKNUM, or already invalidated, do nothing, else...
-    if(this->blockNum != INVALID_BLOCKNUM){
-        /* 
-            get the buffer number of the buffer assigned to the block.
-        */
-        int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
-
-        /*
-            if block is present in the buffer: 
-            1.  free the buffer by setting the free flag of
-                tableMetaInfo entry to true.
-            2.  Free the block disk by setting the data type of the entry
-                corresponding to the block number in blockAllocMap to UNUSED_BLK
-
-                (Don't worry about the slotMap for the block, because if the block is allocated
-                for the 1st time is BlockAccess::insert(), we set the header accrodingly and 
-                every slot in slotMap as UNOCCUPIED)
-        */ 
-        if(bufferNum != E_BLOCKNOTINBUFFER){
-            StaticBuffer::metainfo[bufferNum].free = true;
-            StaticBuffer::blockAllocMap[this->blockNum] = UNUSED_BLK;
-        }
-
-        // set the object's blockNum to INVALID_BLOCK
-        this->blockNum = INVALID_BLOCKNUM;
+void BlockBuffer::releaseBlock() {
+    // do nothing if the block is already invalid
+    if (this->blockNum == INVALID_BLOCKNUM) {
+        return;
     }
+
+    // get the buffer slot holding this block (if any)
+    int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
+
+    // 1. free the buffer slot, only if the block is actually in the buffer
+    if (bufferNum != E_BLOCKNOTINBUFFER) {
+        StaticBuffer::metainfo[bufferNum].free = true;
+    }
+
+    // 2. ALWAYS mark the block as unused in the block allocation map
+    StaticBuffer::blockAllocMap[this->blockNum] = UNUSED_BLK;
+
+    // 3. invalidate this object
+    this->blockNum = INVALID_BLOCKNUM;
 }
 
 
